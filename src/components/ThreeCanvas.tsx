@@ -1,0 +1,47 @@
+import { useEffect, useRef, useState } from "react";
+import { GameEngine, type EngineStatus } from "../three/GameEngine";
+
+export default function ThreeCanvas() {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [status, setStatus] = useState<EngineStatus>({ phase: "idle" });
+
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    const canvas = canvasRef.current;
+    let engine: GameEngine | null = null;
+    let cancelled = false;
+
+    const id = window.setTimeout(() => {
+      if (cancelled) return;
+      engine = new GameEngine(canvas);
+      engine.onStatus(setStatus);
+      void engine.init();
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(id);
+      void engine?.dispose();
+    };
+  }, []);
+
+  return (
+    <>
+      <canvas
+        ref={canvasRef}
+        className="fixed inset-0 z-0 h-screen w-screen"
+        style={{ display: "block", background: "transparent" }}
+      />
+      {status.phase === "error" && (
+        <div className="pointer-events-none fixed inset-x-0 top-0 z-40 flex justify-center pt-20">
+          <div className="pointer-events-auto frosted max-w-xl px-5 py-3 text-sm text-rose-200">
+            <strong className="mr-2 font-arcade text-xs text-rose-300">
+              [SCENE]
+            </strong>
+            {status.message}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
