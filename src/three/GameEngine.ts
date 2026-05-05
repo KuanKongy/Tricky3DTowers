@@ -67,6 +67,7 @@ export class GameEngine {
   private hemiLight: THREE.HemisphereLight | null = null;
   private sunLight: THREE.DirectionalLight | null = null;
   private moonLight: THREE.DirectionalLight | null = null;
+  private unsubscribeDark: (() => void) | null = null;
   private rafId: number | null = null;
   private disposed = false;
   private initPromise: Promise<void> | null = null;
@@ -292,7 +293,13 @@ export class GameEngine {
     );
     this.post.setSize(w, h);
 
-    this.applyVisualTheme(true);
+    let lastIsDark = useGameStore.getState().isDark;
+    this.applyVisualTheme(lastIsDark);
+    this.unsubscribeDark = useGameStore.subscribe((s) => {
+      if (s.isDark === lastIsDark) return;
+      lastIsDark = s.isDark;
+      this.applyVisualTheme(s.isDark);
+    });
 
     window.addEventListener("resize", this.boundResize);
     document.addEventListener("visibilitychange", this.boundVisibility);
@@ -538,6 +545,8 @@ export class GameEngine {
     this.unsubscribePhase = null;
     this.unsubscribePlayerVoid?.();
     this.unsubscribePlayerVoid = null;
+    this.unsubscribeDark?.();
+    this.unsubscribeDark = null;
 
     this.skyMesh = null;
     this.hemiLight = null;

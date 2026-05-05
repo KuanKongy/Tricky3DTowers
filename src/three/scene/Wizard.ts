@@ -195,7 +195,7 @@ export function createWizard(): WizardHandle {
       }
       const sway = Math.sin(t * 0.9) * 0.08;
       group.rotation.z = sway - 0.2 * casting;
-      hat.rotation.z = sway * 1.4 - 0.28 * casting;
+      hat.rotation.z = sway * 0.5 - 0.04 * casting;
       star.rotation.z = -t * (0.6 + 1.4 * casting);
     },
     dispose: () => {

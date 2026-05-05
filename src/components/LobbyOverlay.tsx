@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { PiMoonFill, PiSun } from "react-icons/pi";
 import { useGameStore } from "../store/gameStore";
 import { TETROMINO_COLORS } from "../three/constants";
 
@@ -28,6 +29,8 @@ export default function LobbyOverlay() {
   const pendingPlayAfterLobby = useGameStore((s) => s.pendingPlayAfterLobby);
   const queuePendingPlay = useGameStore((s) => s.queuePendingPlay);
   const clearPendingPlay = useGameStore((s) => s.clearPendingPlay);
+  const isDark = useGameStore((s) => s.isDark);
+  const toggleDark = useGameStore((s) => s.toggleDark);
 
   // If the user clicked "Start" during LOBBY_TRANSITION we queue it; once
   // WAITING is reached we automatically advance to PLAYING.
@@ -63,12 +66,25 @@ export default function LobbyOverlay() {
           visible ? "pointer-events-auto" : "pointer-events-none"
         }`}
       >
-        <p className="mb-1 font-arcade text-[10px] tracking-widest text-tetra-i/90">
-          // ARENA · {ready ? "READY" : "ENTERING"}
-        </p>
-        <h2 className="mb-3 text-3xl font-bold text-white md:text-4xl">
-          Tricky <span className="text-tetra-t">Towers 3D</span>
-        </h2>
+        <div className="mb-3 flex items-start justify-between">
+          <div>
+            <p className="mb-1 font-arcade text-[10px] tracking-widest text-tetra-i/90">
+              // ARENA · {ready ? "READY" : "ENTERING"}
+            </p>
+            <h2 className="font-arcade text-lg leading-tight tracking-wide md:text-xl">
+              <span className="text-moon">TRICKY</span>{" "}
+              <span style={{ color: "#945edb" }}>TOWERS 3D</span>
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={toggleDark}
+            className="mt-1 flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 bg-white/5 text-base transition hover:border-white/50 hover:bg-white/10"
+            title={isDark ? "Switch to day" : "Switch to night"}
+          >
+            {isDark ? <PiSun /> : <PiMoonFill />}
+          </button>
+        </div>
 
         <button
           type="button"
@@ -127,7 +143,7 @@ export default function LobbyOverlay() {
           </button>
         </div>
 
-        <div className="mb-5 grid grid-cols-2 gap-3 text-left text-xs text-white/85">
+        <div className="mb-0.5 grid grid-cols-2 gap-2 text-left text-xs text-white/85">
           <div className="frosted-soft px-3 py-2">
             <div className="font-arcade text-[9px] text-tetra-i">CONTROLS</div>
             <div className="mt-1 leading-relaxed">

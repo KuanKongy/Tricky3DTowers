@@ -49,18 +49,23 @@ export interface GameState {
   pendingPlayAfterLobby: boolean;
   queuePendingPlay: () => void;
   clearPendingPlay: () => void;
+
+  isDark: boolean;
+  toggleDark: () => void;
 }
 
 const STARTING_LIVES = 3;
 
 const stored = (() => {
   if (typeof window === "undefined")
-    return { hi: 0, mode: "SURVIVAL" as GameMode };
+    return { hi: 0, mode: "SURVIVAL" as GameMode, dark: true };
   const hi = Number(localStorage.getItem("trickyTowers.highScore") || "0");
   const m = localStorage.getItem("trickyTowers.mode");
+  const dark = localStorage.getItem("trickyTowers.dark");
   return {
     hi: isNaN(hi) ? 0 : hi,
     mode: (m === "ENDLESS" ? "ENDLESS" : "SURVIVAL") as GameMode,
+    dark: dark === null ? true : dark === "1",
   };
 })();
 
@@ -127,4 +132,14 @@ export const useGameStore = create<GameState>((set, get) => ({
   pendingPlayAfterLobby: false,
   queuePendingPlay: () => set({ pendingPlayAfterLobby: true }),
   clearPendingPlay: () => set({ pendingPlayAfterLobby: false }),
+
+  isDark: stored.dark,
+  toggleDark: () =>
+    set((s) => {
+      const next = !s.isDark;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("trickyTowers.dark", next ? "1" : "0");
+      }
+      return { isDark: next };
+    }),
 }));
