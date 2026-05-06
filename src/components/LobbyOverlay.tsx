@@ -90,9 +90,9 @@ export default function LobbyOverlay() {
           type="button"
           onClick={start}
           disabled={!canInteract}
-          className={`mb-4 block w-full rounded-xl border-2 px-4 py-5 transition disabled:cursor-not-allowed disabled:opacity-50 ${
+          className={`play-btn mb-4 block w-full rounded-xl border-2 px-4 py-5 transition disabled:cursor-not-allowed disabled:opacity-50 ${
             canInteract
-              ? "border-tetra-i/80 bg-black/35 hover:bg-black/50 animate-play-pulse"
+              ? "border-tetra-i/80"
               : "border-white/15 bg-black/25"
           }`}
         >

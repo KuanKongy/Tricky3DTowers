@@ -26,8 +26,8 @@ export default function GameOverCard() {
         <p className="mb-2 font-arcade text-[10px] tracking-widest text-tetra-z/90">
           // TOWER · TOPPLED
         </p>
-        <h2 className="mb-3 text-3xl font-bold text-white md:text-4xl">
-          Game <span className="text-tetra-z">Over</span>
+        <h2 className="font-arcade mb-3 text-lg font-bold text-white leading-tight tracking-wide md:text-4xl">
+          GAME <span className="text-tetra-z">OVER</span>
         </h2>
         {isNewHigh && (
           <p className="mb-3 font-arcade text-[11px] text-tetra-o">
