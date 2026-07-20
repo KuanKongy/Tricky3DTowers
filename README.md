@@ -1,6 +1,26 @@
 # Tricky Towers 3D
 
-A physics-based tower-stacking game set in a stylized night-sky 3D world. Stack tetromino pieces as high as you can on a castle platform — pieces topple according to real-time Rapier physics. Lose three pieces into the void and it's game over.
+A love letter to [Tricky Towers](https://www.trickytowers.com/) — rebuilt in the browser, in 3D, under a night sky.
+
+Stack tetrominoes on a castle platform. Watch the physics decide whether your tower stands or collapses into the void. One bad placement and the whole thing can go.
+
+This same scene runs as the living background on my portfolio: **[kuankongy.github.io](https://kuankongy.github.io)**.
+
+**Play it here:** [kuankongy.github.io/Tricky3Towers](https://kuankongy.github.io/Tricky3Towers/)
+
+---
+
+## Why this exists
+
+My first ever project was a multiplayer Tetris game. That itch never really left — the feel of a piece dropping, the panic of a crooked stack, the satisfaction when everything *just* holds.
+
+Tricky Towers 3D is my passion project to actually learn frontend: React, Three.js, real physics in the browser. Something I wanted to *show*. Also, needed to make portfolio look cool.
+
+And the game itself is the metaphor I keep coming back to in software:
+
+> You need precision. You need to know where to put what. When to cut corners — and when you absolutely cannot — so you can keep building up without making the tower fall.
+
+Same instinct. Different medium.
 
 ---
 
@@ -11,7 +31,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173/`.
+Open `http://localhost:5173/Tricky3Towers/`.
 
 | Script            | Purpose                                  |
 | ----------------- | ---------------------------------------- |
