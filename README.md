@@ -6,7 +6,7 @@ Stack tetrominoes on a castle platform. Watch the physics decide whether your to
 
 This same scene runs as the living background on my portfolio: **[kuankongy.github.io](https://kuankongy.github.io)**.
 
-**Play it here:** [kuankongy.github.io/Tricky3Towers](https://kuankongy.github.io/Tricky3Towers/)
+**Play it here:** [kuankongy.github.io/Tricky3DTowers](https://kuankongy.github.io/Tricky3DTowers/)
 
 ---
 
@@ -31,7 +31,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173/Tricky3Towers/`.
+Open `http://localhost:5173/Tricky3DTowers/`.
 
 | Script            | Purpose                                  |
 | ----------------- | ---------------------------------------- |
