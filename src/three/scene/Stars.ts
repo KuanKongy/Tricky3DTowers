@@ -105,6 +105,8 @@ export interface StarsHandle {
   /** A Group containing all star sub-layers — added once to the scene. */
   points: THREE.Group;
   update: (elapsed: number) => void;
+  /** Brightness multiplier (1 = normal) — scroll-linked scene moments. */
+  setBoost: (v: number) => void;
   dispose: () => void;
 }
 
@@ -115,17 +117,20 @@ interface LayerSpec {
   scaleRange: [number, number];
   /** Higher = faster twinkle. */
   twinkleSpeed: number;
+  /** Polar-angle band (fraction of π) the layer occupies on the shell. */
+  phiRange?: [number, number];
 }
 
 function buildLayer(spec: LayerSpec): StarLayer {
   const { count, sprite, baseSize, scaleRange, twinkleSpeed } = spec;
+  const [phiMin, phiMax] = spec.phiRange ?? [0.05, 0.7];
   const positions = new Float32Array(count * 3);
   const phases = new Float32Array(count);
   const scales = new Float32Array(count);
   for (let i = 0; i < count; i++) {
     const r = THREE.MathUtils.randFloat(140, 320);
     const theta = Math.random() * Math.PI * 2;
-    const phi = THREE.MathUtils.randFloat(Math.PI * 0.05, Math.PI * 0.7);
+    const phi = THREE.MathUtils.randFloat(Math.PI * phiMin, Math.PI * phiMax);
     positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
     positions[i * 3 + 1] = r * Math.cos(phi);
     positions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta) - 30;
@@ -143,6 +148,7 @@ function buildLayer(spec: LayerSpec): StarLayer {
       uSprite: { value: sprite },
       uSize: { value: baseSize },
       uTwinkleSpeed: { value: twinkleSpeed },
+      uBoost: { value: 1 },
     },
     vertexShader: /* glsl */ `
       uniform float uTime;
@@ -162,11 +168,12 @@ function buildLayer(spec: LayerSpec): StarLayer {
     `,
     fragmentShader: /* glsl */ `
       uniform sampler2D uSprite;
+      uniform float uBoost;
       varying float vTwinkle;
       void main() {
         vec4 tex = texture2D(uSprite, gl_PointCoord);
         if (tex.a < 0.01) discard;
-        gl_FragColor = vec4(tex.rgb, tex.a * vTwinkle);
+        gl_FragColor = vec4(tex.rgb * uBoost, tex.a * vTwinkle);
       }
     `,
     transparent: true,
@@ -180,18 +187,26 @@ function buildLayer(spec: LayerSpec): StarLayer {
 }
 
 /**
- * Three star "flavors":
+ * Four star "flavors":
  *   - tiny round pinpoints (the bulk)
  *   - 5-pointed bright stars  (less common, larger)
  *   - 4-pointed sparkle crosses (the rarest, brightest, fastest twinkle)
+ *   - a dense band of small fast twinkles hugging the horizon
  */
-export function createStars(round = 800, fivePt = 90, sparkle = 50): StarsHandle {
+export function createStars(
+  round = 800,
+  fivePt = 90,
+  sparkle = 50,
+  horizon = 220,
+): StarsHandle {
   const root = new THREE.Group();
   root.name = "Stars";
 
   const roundSprite = makeRoundSprite();
   const fiveSprite = makeFivePointStarSprite();
   const sparkSprite = makeFourPointSparkleSprite();
+
+  const isMobile = !window.matchMedia("(min-width: 768px)").matches;
 
   const layers: StarLayer[] = [
     buildLayer({
@@ -215,6 +230,14 @@ export function createStars(round = 800, fivePt = 90, sparkle = 50): StarsHandle
       scaleRange: [1.2, 2.6],
       twinkleSpeed: 2.4,
     }),
+    buildLayer({
+      count: isMobile ? Math.round(horizon * 0.55) : horizon,
+      sprite: roundSprite,
+      baseSize: 800,
+      scaleRange: [0.4, 1.0],
+      twinkleSpeed: 2.0,
+      phiRange: [0.38, 0.52],
+    }),
   ];
   for (const l of layers) root.add(l.points);
 
@@ -222,6 +245,9 @@ export function createStars(round = 800, fivePt = 90, sparkle = 50): StarsHandle
     points: root,
     update: (t) => {
       for (const l of layers) l.mat.uniforms.uTime.value = t;
+    },
+    setBoost: (v) => {
+      for (const l of layers) l.mat.uniforms.uBoost.value = v;
     },
     dispose: () => {
       for (const l of layers) {

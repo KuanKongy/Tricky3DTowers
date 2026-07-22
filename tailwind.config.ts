@@ -26,10 +26,22 @@ export default {
           o: "#8e24aa", // purple
           t: "#43a047", // green
         },
+        // Light-theme counterparts — bright arcade tone in dark, deepened
+        // twin on light glass (pattern: text-tetraDeep-x dark:text-tetra-x).
+        tetraDeep: {
+          i: "#c62828",
+          s: "#0e7490",
+          j: "#1565c0",
+          l: "#b45309",
+          z: "#c2410c",
+          o: "#7b1fa2",
+          t: "#2e7d32",
+        },
+        ink: "rgb(var(--ink) / <alpha-value>)",
       },
       fontFamily: {
         arcade: ['"Press Start 2P"', "system-ui", "sans-serif"],
-        sans: ['"Roboto"', "system-ui", "sans-serif"],
+        sans: ['"DM Sans"', "system-ui", "sans-serif"],
       },
       animation: {
         "play-pulse": "play-pulse 4s linear infinite",

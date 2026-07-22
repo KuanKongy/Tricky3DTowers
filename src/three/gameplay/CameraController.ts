@@ -5,9 +5,10 @@ import { CAMERA_MODES, CAMERA_PLAY } from "../constants";
 type Mode = keyof typeof CAMERA_MODES;
 
 /**
- * Spherical-orbit camera with two "modes" (WAITING/PLAY) tweened via GSAP,
- * manual click-and-drag rotation, mouse-wheel zoom, and an optional
- * follow-target so the camera anchors to the highest locked piece while playing.
+ * Spherical-orbit camera with three "modes" (INTRO/WAITING/PLAY) tweened via
+ * GSAP, manual click-and-drag rotation, mouse-wheel zoom in WAITING/PLAY, and
+ * an optional follow-target so the camera anchors to the highest locked piece
+ * while playing.
  */
 export class CameraController {
   private camera: THREE.PerspectiveCamera;
@@ -21,7 +22,7 @@ export class CameraController {
   private anchor = new THREE.Vector3(0, 5, 0);
   private followAnchor = false;
 
-  private mode: Mode = "WAITING";
+  private mode: Mode = "INTRO";
   private currentPos = new THREE.Vector3();
 
   private tween: gsap.core.Timeline | null = null;
@@ -39,7 +40,7 @@ export class CameraController {
   constructor(camera: THREE.PerspectiveCamera, dom: HTMLElement) {
     this.camera = camera;
     this.dom = dom;
-    this.applyMode("WAITING");
+    this.applyMode("INTRO");
     this.currentPos.copy(camera.position);
     dom.addEventListener("mousedown", this.boundDown);
     window.addEventListener("mousemove", this.boundMove);
@@ -111,24 +112,24 @@ export class CameraController {
   }
 
   private onMouseMove(e: MouseEvent) {
-    if (this.dragging) {
-      const dx = e.clientX - this.lastMouse.x;
-      const dy = e.clientY - this.lastMouse.y;
-      this.lastMouse.set(e.clientX, e.clientY);
-      this.azimuthDeg = THREE.MathUtils.clamp(
-        this.azimuthDeg + dx * this.dragSensitivity,
-        -45,
-        45,
-      );
-      this.polarDeg = THREE.MathUtils.clamp(
-        this.polarDeg - dy * this.dragSensitivity,
-        5,
-        65,
-      );
-    }
+    if (!this.dragging) return;
+    const dx = e.clientX - this.lastMouse.x;
+    const dy = e.clientY - this.lastMouse.y;
+    this.lastMouse.set(e.clientX, e.clientY);
+    this.azimuthDeg = THREE.MathUtils.clamp(
+      this.azimuthDeg + dx * this.dragSensitivity,
+      -45,
+      45,
+    );
+    this.polarDeg = THREE.MathUtils.clamp(
+      this.polarDeg - dy * this.dragSensitivity,
+      5,
+      65,
+    );
   }
 
   private onWheel(e: WheelEvent) {
+    if (this.mode === "INTRO") return;
     // Snap zoom — high sensitivity, near-instant. Each wheel "tick" moves
     // the orbit radius by a healthy chunk so a single scroll noticeably
     // zooms in/out instead of drifting toward the target.

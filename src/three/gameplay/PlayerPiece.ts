@@ -9,6 +9,7 @@ import type { PhysicsWorld } from "../physics/PhysicsWorld";
 import type { TetrominoFactory } from "./TetrominoFactory";
 import type { InputAction } from "./InputController";
 import { FallingRay } from "./FallingRay";
+import type { TrailFx } from "../effects/TrailFx";
 
 export interface PlayerPieceLockResult {
   body: RAPIER.RigidBody;
@@ -71,6 +72,7 @@ export class PlayerPiece {
   private locked = false;
   private excludeColliders = new Set<number>();
   private fallingRay: FallingRay;
+  private trailFx: TrailFx | null;
 
   constructor(
     scene: THREE.Scene,
@@ -78,6 +80,7 @@ export class PlayerPiece {
     factory: TetrominoFactory,
     key: TetrominoKey,
     fallingRay: FallingRay,
+    trailFx: TrailFx | null,
     spawnX: number,
     spawnY: number,
     spawnZ: number,
@@ -88,6 +91,7 @@ export class PlayerPiece {
     this.key = key;
     this.fallingRay = fallingRay;
     this.fallingRay.setKey(key);
+    this.trailFx = trailFx;
 
     const built = factory.create(key);
     this.group = built.group;
@@ -130,6 +134,11 @@ export class PlayerPiece {
 
   isLocked(): boolean {
     return this.locked;
+  }
+
+  /** True once the piece has fallen past the arena into the void. */
+  hasFallenOut(): boolean {
+    return !this.locked && this.currentY < PLAYER.loseY;
   }
 
   /** Compute min/max rotated-X offsets at the given roll. */
@@ -251,6 +260,9 @@ export class PlayerPiece {
     this.group.position.set(this.currentX, this.currentY, this.spawnZ);
     this.group.quaternion.copy(q);
 
+    // No fall trail during gameplay (user call: trails are ambient-only
+    // decoration); the lock sparkle burst in lockNow() is the only piece FX.
+
     this.fallingRay.update(
       this.pw,
       new THREE.Vector3(this.currentX, this.currentY, this.spawnZ),
@@ -275,6 +287,9 @@ export class PlayerPiece {
           { x: cellWX + dx, y: cellBottomY, z: this.spawnZ + dz },
           { x: 0, y: -1, z: 0 },
         );
+        // Sensors (the invisible void detector) are NOT ground — without
+        // this filter a piece falling into the void "landed" on the sensor
+        // and scored a lock.
         const hit = this.pw.world.castRay(
           ray,
           PLAYER.contactThreshold + 0.04,
@@ -283,7 +298,7 @@ export class PlayerPiece {
           undefined,
           undefined,
           undefined,
-          (col) => !this.excludeColliders.has(col.handle),
+          (col) => !this.excludeColliders.has(col.handle) && !col.isSensor(),
         );
         if (hit && hit.timeOfImpact <= PLAYER.contactThreshold + 0.04) {
           touching = true;
@@ -316,6 +331,17 @@ export class PlayerPiece {
   private lockNow(): PlayerPieceLockResult {
     this.locked = true;
     this.fallingRay.hide();
+    if (this.trailFx) {
+      const cells = this.colliderOffsets.map((off) => {
+        const [rx, ry] = this.rotatedOffset(off);
+        return new THREE.Vector3(
+          this.currentX + rx,
+          this.currentY + ry,
+          this.spawnZ,
+        );
+      });
+      this.trailFx.burst(cells, this.key);
+    }
 
     const flat = true;
     const q = new THREE.Quaternion().setFromEuler(

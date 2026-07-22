@@ -36,15 +36,30 @@ export const PALETTE = {
   platformBorderA: new THREE.Color("#c62828"),
   platformBorderB: new THREE.Color("#ff6b6b"),
   pine: new THREE.Color("#3f8b5a"),
-  /** Wizard mascot — light cyan robe + deeper cyan hat, per user request. */
+  /** Owl mascot — deep teal robe + deeper cyan hat, per user request. */
   wizardHat: new THREE.Color("#1f6f86"),
-  wizardRobe: new THREE.Color("#7adde6"),
+  wizardRobe: new THREE.Color("#3fa8ba"),
   wizardSkin: new THREE.Color("#f6c9a3"),
   wizardCloud: new THREE.Color("#f4f0ff"),
   wizardStar: new THREE.Color("#ffe14a"),
+  owlBeak: new THREE.Color("#f0a030"),
+  owlWing: new THREE.Color("#4fc0d2"),
+  owlChest: new THREE.Color("#d8f4f8"),
+  hatBand: new THREE.Color("#ffd34d"),
+  /** Classic Tricky-Towers-style wizard. */
+  wizClassicRobe: new THREE.Color("#6d4fc4"),
+  wizClassicHat: new THREE.Color("#3d2a8f"),
+  /** Octopus-in-a-suit homage. */
+  octoSkin: new THREE.Color("#f5a03c"),
+  octoSuit: new THREE.Color("#2e5fbf"),
+  octoTie: new THREE.Color("#d8352c"),
 } as const;
 
-/** Day / light-mode sky — cool blues for portfolio "light theme". */
+/**
+ * DAY sky — the ORIGINAL cool blues (user: keep exactly these; the warm
+ * cream-horizon variant lives in PALETTE_EVENING only). Default scene for
+ * the light theme.
+ */
 export const PALETTE_DAY = {
   skyTop: new THREE.Color("#b8d4f8"),
   skyMid: new THREE.Color("#6ba8e8"),
@@ -52,6 +67,24 @@ export const PALETTE_DAY = {
   groundFog: new THREE.Color("#9ec5ea"),
   moon: new THREE.Color("#fff8e0"),
   moonGlow: new THREE.Color("#ffffff"),
+} as const;
+
+/**
+ * EVENING sky — a proper Tricky-Towers sunset (evening.png reference):
+ * pale gold zenith through warm gold to a dusty orange horizon and haze,
+ * golden sun light. Only shown when the user picks EVENING.
+ */
+export const PALETTE_EVENING = {
+  // Sunset ramp runs BRIGHT AT THE HORIZON, dark overhead. skyMid is what
+  // covers most of the visible upper sky, so it carries the strong orange
+  // (user: orange must start at mountain level, not just near the zenith)
+  // and the horizon glow stays golden-orange, not white.
+  skyTop: new THREE.Color("#c96a3c"),
+  skyMid: new THREE.Color("#de8752"),
+  skyLow: new THREE.Color("#f6bd7d"),
+  groundFog: new THREE.Color("#f0b070"),
+  moon: new THREE.Color("#fff8e0"),
+  moonGlow: new THREE.Color("#ffd898"),
 } as const;
 
 /**
@@ -111,12 +144,14 @@ export const TETROMINOES = {
 
 export type TetrominoKey = keyof typeof TETROMINOES;
 
+// I / Z / L are deliberately far apart in hue+brightness — the old red /
+// dark-orange / amber triplet blurred together against the night sky.
 export const TETROMINO_COLORS: Record<TetrominoKey, string> = {
-  I: "#e53935", // red
+  I: "#ff3b30", // vivid red
   S: "#26c6da", // cyan
   J: "#1e88e5", // blue
-  L: "#ffca28", // light orange / yellow
-  Z: "#e65100", // dark orange
+  L: "#ffd60a", // clear yellow
+  Z: "#ff700a", // deep orange — #ff8c1a washed toward yellow once the skin bakes brightened it
   O: "#8e24aa", // purple
   T: "#43a047", // green
 };
@@ -154,6 +189,8 @@ export const ARENA = {
 } as const;
 
 export const CAMERA_MODES = {
+  /** Wide boot framing — LOBBY_TRANSITION tweens from here into WAITING. */
+  INTRO: { radius: 38, polar: 25, azimuth: 0, target: new THREE.Vector3(0, 5, 0) },
   WAITING: { radius: 26, polar: 26, azimuth: 0, target: new THREE.Vector3(0, 9, ARENA.platformHalfDepth - 0.5) },
   PLAY: { radius: 18, polar: 22, azimuth: 0, target: new THREE.Vector3(0, 11, ARENA.platformHalfDepth - 0.5) },
 } as const;
@@ -196,7 +233,8 @@ export const SCORING = {
   voidClusterMs: 2000,
 } as const;
 
-export const WIZARD = {
+/** Cloud-rider mascot (owl / wizard / octopus) home perch + idle bob. */
+export const CHARACTER = {
   position: new THREE.Vector3(15, 11, -2),
   bobAmplitude: 0.6,
   bobPeriod: 4.0,

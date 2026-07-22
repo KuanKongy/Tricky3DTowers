@@ -4,6 +4,7 @@ import {
   CAMERA_PLAY,
   PALETTE,
   PALETTE_DAY,
+  PALETTE_EVENING,
   PLAYER,
   TETROMINO_KEYS,
   type TetrominoKey,
@@ -16,9 +17,13 @@ import { createSun, type SunHandle } from "./scene/Sun";
 import { createStars, type StarsHandle } from "./scene/Stars";
 import { createClouds, type CloudsHandle } from "./scene/Clouds";
 import { createMountains, type MountainsHandle } from "./scene/Mountains";
+import { createMist, type MistHandle } from "./scene/Mist";
 import { createCastle, type CastleHandle } from "./scene/Castle";
 // VoidFog removed per user request — no ground fog mist near the void.
-import { createWizard, type WizardHandle } from "./scene/Wizard";
+import {
+  createCharacter,
+  type CharacterHandle,
+} from "./scene/characters";
 import { CameraController } from "./gameplay/CameraController";
 import { TetrominoManager } from "./gameplay/TetrominoManager";
 import { TetrominoFactory } from "./gameplay/TetrominoFactory";
@@ -27,7 +32,15 @@ import { PlayerPiece } from "./gameplay/PlayerPiece";
 import { FallingRay } from "./gameplay/FallingRay";
 import { ScoreManager } from "./gameplay/ScoreManager";
 import { createPostProcessing, type PostHandle } from "./effects/PostProcessing";
-import { useGameStore, type GamePhase } from "../store/gameStore";
+import { TrailFx } from "./effects/TrailFx";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { prefersReducedMotion } from "../lib/motion";
+import {
+  useGameStore,
+  type CharacterId,
+  type GamePhase,
+  type SceneTime,
+} from "../store/gameStore";
 
 export type EngineStatus =
   | { phase: "idle" }
@@ -52,22 +65,28 @@ export class GameEngine {
   private stars: StarsHandle | null = null;
   private clouds: CloudsHandle | null = null;
   private mountains: MountainsHandle | null = null;
+  private mist: MistHandle | null = null;
   private castle: CastleHandle | null = null;
-  private wizard: WizardHandle | null = null;
+  private character: CharacterHandle | null = null;
   private camCtrl: CameraController | null = null;
   private spawner: TetrominoManager | null = null;
   private factory: TetrominoFactory | null = null;
   private input: InputController | null = null;
   private fallingRay: FallingRay | null = null;
+  private trailFx: TrailFx | null = null;
   private score: ScoreManager | null = null;
   private playerPiece: PlayerPiece | null = null;
   private post: PostHandle | null = null;
 
   private skyMesh: THREE.Mesh | null = null;
+  private blockEnvMap: THREE.Texture | null = null;
   private hemiLight: THREE.HemisphereLight | null = null;
   private sunLight: THREE.DirectionalLight | null = null;
   private moonLight: THREE.DirectionalLight | null = null;
   private unsubscribeDark: (() => void) | null = null;
+  private unsubscribeSkin: (() => void) | null = null;
+  private unsubscribeCharacter: (() => void) | null = null;
+
   private rafId: number | null = null;
   private disposed = false;
   private initPromise: Promise<void> | null = null;
@@ -100,18 +119,28 @@ export class GameEngine {
     this.statusListeners.forEach((fn) => fn(s));
   }
 
-  private applyVisualTheme(isDark: boolean) {
+  private applyVisualScene(time: SceneTime) {
     if (!this.scene || !this.renderer) return;
-    const sky = isDark ? PALETTE : PALETTE_DAY;
+    const isNight = time === "NIGHT";
+    const sky = isNight
+      ? PALETTE
+      : time === "DAY"
+        ? PALETTE_DAY
+        : PALETTE_EVENING;
     this.renderer.setClearColor(sky.skyTop, 1);
     this.scene.background = sky.skyTop.clone();
-    // Lower exposure at night so the saturated purple sky doesn't blow out;
-    // bump it for day so the blue + sun feel sunlit.
-    this.renderer.toneMappingExposure = isDark ? 0.95 : 1.15;
+    // Lower exposure at night so the saturated purple sky doesn't blow out.
+    // Day stays restrained (day.png: bluish, real shadows — not blown-out
+    // bright); evening runs a touch hotter for the sunset glow.
+    this.renderer.toneMappingExposure = isNight
+      ? 0.95
+      : time === "DAY"
+        ? 1.02
+        : 1.1;
     if (this.scene.fog instanceof THREE.Fog) {
       this.scene.fog.color.copy(sky.groundFog);
-      this.scene.fog.near = isDark ? 100 : 90;
-      this.scene.fog.far = isDark ? 320 : 320;
+      this.scene.fog.near = isNight ? 100 : 90;
+      this.scene.fog.far = isNight ? 320 : 320;
     }
     const skyMat = this.skyMesh?.material as THREE.ShaderMaterial | undefined;
     if (skyMat?.uniforms) {
@@ -119,34 +148,43 @@ export class GameEngine {
       skyMat.uniforms.uColorMid.value.copy(sky.skyMid);
       skyMat.uniforms.uColorLow.value.copy(sky.skyLow);
       skyMat.uniforms.uColorFog.value.copy(sky.groundFog);
+      // Nebula mottling is a night-only flourish.
+      skyMat.uniforms.uNebulaAmt.value = isNight ? 1.0 : 0.0;
     }
     if (this.hemiLight) {
-      // Dark mode: a softer ambient sky-fill so the towers and arena read
-      // clearly without flooding the scene like daylight. Day mode: full
-      // bright sky-fill hemi.
+      // Night: a softer ambient sky-fill so the towers and arena read
+      // clearly without flooding the scene like daylight. Day keeps the
+      // fill restrained so the sun's shadows stay visible (user: shadows
+      // are enormous — the scene shouldn't look like they don't exist).
       this.hemiLight.color.copy(sky.skyMid);
       this.hemiLight.groundColor.copy(sky.groundFog);
-      this.hemiLight.intensity = isDark ? 0.45 : 1.05;
+      this.hemiLight.intensity = isNight ? 0.45 : time === "DAY" ? 0.85 : 0.95;
     }
     if (this.sunLight) {
-      // Strong key light only in day mode.
-      this.sunLight.color.copy(PALETTE_DAY.moonGlow);
-      this.sunLight.intensity = isDark ? 0.0 : 1.4;
-      this.sunLight.castShadow = !isDark;
-      this.sunLight.visible = !isDark;
+      // Strong key light only when the sun is up — near-white at day,
+      // warm gold at evening (palette-driven).
+      this.sunLight.color.copy(sky.moonGlow);
+      this.sunLight.intensity = isNight ? 0.0 : 1.4;
+      this.sunLight.castShadow = !isNight;
+      this.sunLight.visible = !isNight;
     }
     if (this.moonLight) {
-      // Cool key light from the moon's direction in dark mode — bumped a
+      // Cool key light from the moon's direction at night — bumped a
       // little so the moon visibly "shines" on the towers.
-      this.moonLight.intensity = isDark ? 0.7 : 0.0;
-      this.moonLight.castShadow = isDark;
-      this.moonLight.visible = isDark;
+      this.moonLight.intensity = isNight ? 0.7 : 0.0;
+      this.moonLight.castShadow = isNight;
+      this.moonLight.visible = isNight;
     }
-    if (this.moon) this.moon.group.visible = isDark;
-    if (this.sun) this.sun.group.visible = !isDark;
-    if (this.stars?.points) this.stars.points.visible = isDark;
-    this.clouds?.setDayNight(isDark);
-    this.mountains?.setDayNight(isDark);
+    if (this.moon) this.moon.group.visible = isNight;
+    if (this.sun) this.sun.group.visible = !isNight;
+    if (this.stars?.points) this.stars.points.visible = isNight;
+    // The dark corners are part of the look's charm — full at night,
+    // eased slightly (not removed) for the sunlit scenes.
+    this.post?.setVignette(isNight ? 0.90 : 0.75);
+    this.clouds?.setDayNight(isNight);
+    this.mountains?.setDayNight(isNight);
+    this.mist?.setDayNight(isNight);
+    this.character?.setDayNight(isNight);
   }
 
   init(): Promise<void> {
@@ -212,10 +250,12 @@ export class GameEngine {
         0.45,
       )),
     );
-    // Day-mode key light (sun).
+    // Day-mode key light (sun). Positioned front-of-scene (+z, camera side)
+    // so clouds and mountain faces toward the viewer are sunlit — behind-the-
+    // scene light left everything camera-facing in shade and read overcast.
     const sunLight = new THREE.DirectionalLight(PALETTE_DAY.moonGlow.getHex(), 0.0);
     this.sunLight = sunLight;
-    sunLight.position.set(-10, 30, -8);
+    sunLight.position.set(-14, 30, 22);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.set(1024, 1024);
     sunLight.shadow.camera.left = -25;
@@ -249,7 +289,7 @@ export class GameEngine {
     this.moon = createMoon();
     this.scene.add(this.moon.group);
     this.sun = createSun();
-    this.sun.group.visible = false; // applyVisualTheme will toggle correctly
+    this.sun.group.visible = false; // applyVisualScene will toggle correctly
     this.scene.add(this.sun.group);
     this.stars = createStars(900, 110, 60);
     this.scene.add(this.stars.points);
@@ -258,10 +298,12 @@ export class GameEngine {
 
     this.mountains = createMountains();
     this.scene.add(this.mountains.group);
+    this.mist = createMist();
+    this.scene.add(this.mist.group);
     this.castle = createCastle();
     this.scene.add(this.castle.group);
-    this.wizard = createWizard();
-    this.scene.add(this.wizard.group);
+    this.character = createCharacter(useGameStore.getState().character);
+    this.scene.add(this.character.group);
 
     this.renderer.render(this.scene, this.camera);
 
@@ -272,8 +314,23 @@ export class GameEngine {
 
     buildStaticColliders(this.pw, this.castle, this.mountains);
 
-    this.factory = new TetrominoFactory();
-    this.spawner = new TetrominoManager(this.scene, this.pw, this.factory);
+    // Studio environment for the GLOSSY block skin's clearcoat reflections
+    // (applied per-material, NOT scene.environment, so nothing else shifts).
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    this.blockEnvMap = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    pmrem.dispose();
+
+    this.factory = new TetrominoFactory(this.blockEnvMap);
+    this.trailFx = new TrailFx(this.scene);
+    // Ambient trails respect reduced-motion; the player's own lock burst
+    // stays on — it's gameplay feedback, not decoration.
+    this.spawner = new TetrominoManager(
+      this.scene,
+      this.pw,
+      this.factory,
+      this.trailFx,
+      !prefersReducedMotion(),
+    );
     this.fallingRay = new FallingRay(this.scene);
     this.score = new ScoreManager();
     this.input = new InputController();
@@ -293,12 +350,28 @@ export class GameEngine {
     );
     this.post.setSize(w, h);
 
-    let lastIsDark = useGameStore.getState().isDark;
-    this.applyVisualTheme(lastIsDark);
+    // sceneTime is coupled to the theme in the store (NIGHT ⇔ dark), so it
+    // is the single source of truth for the scene's look.
+    let lastScene = useGameStore.getState().sceneTime;
     this.unsubscribeDark = useGameStore.subscribe((s) => {
-      if (s.isDark === lastIsDark) return;
-      lastIsDark = s.isDark;
-      this.applyVisualTheme(s.isDark);
+      if (s.sceneTime === lastScene) return;
+      lastScene = s.sceneTime;
+      this.applyVisualScene(s.sceneTime);
+    });
+    this.applyVisualScene(lastScene);
+
+    let lastSkin = useGameStore.getState().blockSkin;
+    this.unsubscribeSkin = useGameStore.subscribe((s) => {
+      if (s.blockSkin === lastSkin) return;
+      lastSkin = s.blockSkin;
+      this.spawner?.reskinAll(s.blockSkin);
+    });
+
+    let lastCharacter = useGameStore.getState().character;
+    this.unsubscribeCharacter = useGameStore.subscribe((s) => {
+      if (s.character === lastCharacter) return;
+      lastCharacter = s.character;
+      this.swapCharacter(s.character);
     });
 
     window.addEventListener("resize", this.boundResize);
@@ -330,9 +403,9 @@ export class GameEngine {
         // Stop the wizard well short of the arena centre — he hovers off to
         // the side casting, never directly over the play column.
         const arenaCenter = new THREE.Vector3(9, ARENA.platformY + 5, PLAYER.spawnZ + 1);
-        this.wizard?.setCasting(true);
+        this.character?.setCasting(true);
         await Promise.all([
-          this.wizard?.flyTo(arenaCenter, 0.7),
+          this.character?.flyTo(arenaCenter, 0.7),
           this.camCtrl?.tweenTo("WAITING", 1.0),
         ]);
         if (useGameStore.getState().phase === "LOBBY_TRANSITION") {
@@ -341,6 +414,9 @@ export class GameEngine {
         break;
       }
       case "WAITING": {
+        // Reachable both from LOBBY_TRANSITION and from a quit out of
+        // PLAYING/GAME_OVER, so it has to fully reset the arena and bring
+        // the camera + rider back to the lobby framing itself.
         this.playerPiece?.abort();
         this.playerPiece = null;
         this.spawner?.setIdleEnabled(false);
@@ -348,8 +424,8 @@ export class GameEngine {
         this.score?.reset();
         useGameStore.getState().setNextPieceKey(pickRandomKey());
         const arenaPos = new THREE.Vector3(9, ARENA.platformY + 5, PLAYER.spawnZ + 1);
-        this.wizard?.setCasting(true);
-        void this.wizard?.flyTo(arenaPos, 0.55);
+        this.character?.setCasting(true);
+        void this.character?.flyTo(arenaPos, 0.55);
         void this.camCtrl?.tweenTo("WAITING", 0.9);
         break;
       }
@@ -360,8 +436,8 @@ export class GameEngine {
         this.spawner?.clearAll();
         this.score?.reset();
         useGameStore.getState().setNextPieceKey(pickRandomKey());
-        this.wizard?.setCasting(false);
-        void this.wizard?.flyHome(0.55);
+        this.character?.setCasting(false);
+        void this.character?.flyHome(0.55);
         await this.camCtrl?.tweenTo("PLAY", 0.9);
         if (useGameStore.getState().phase === "PLAYING") {
           this.spawnNextPlayerPiece();
@@ -372,9 +448,31 @@ export class GameEngine {
         this.playerPiece?.abort();
         this.playerPiece = null;
         this.spawner?.setIdleEnabled(false);
-        this.wizard?.setCasting(false);
+        this.character?.setCasting(false);
         break;
     }
+  }
+
+  /**
+   * Live character swap at the rider's current position. Removing the group
+   * from the scene BEFORE dispose matters — dispose() frees GPU resources
+   * but does not detach, and a still-attached group would render black.
+   */
+  private swapCharacter(id: CharacterId) {
+    if (!this.scene || !this.character) return;
+    const old = this.character;
+    const pos = old.group.position.clone();
+    this.scene.remove(old.group);
+    old.dispose();
+    const next = createCharacter(id);
+    next.placeAt(pos);
+    this.scene.add(next.group);
+    next.setDayNight(useGameStore.getState().sceneTime === "NIGHT");
+    next.setCasting(
+      this.currentPhase === "WAITING" ||
+        this.currentPhase === "LOBBY_TRANSITION",
+    );
+    this.character = next;
   }
 
   private spawnNextPlayerPiece() {
@@ -396,6 +494,7 @@ export class GameEngine {
       this.factory,
       key,
       this.fallingRay,
+      this.trailFx,
       spawnX,
       spawnY,
       spawnZ,
@@ -438,10 +537,6 @@ export class GameEngine {
           break;
         case "PLAYING":
           if (a === "quit") {
-            this.playerPiece?.abort();
-            this.playerPiece = null;
-            this.spawner?.clearAll();
-            this.score?.reset();
             useGameStore.getState().setPhase("WAITING");
           } else if (this.playerPiece) {
             this.playerPiece.applyAction(a);
@@ -481,11 +576,30 @@ export class GameEngine {
     this.sun?.update(t);
     this.stars?.update(t);
     this.clouds?.update(t);
+    this.mist?.update(t);
     this.castle?.update(t);
-    this.wizard?.update(t);
+    this.character?.update(t);
     this.spawner?.update(dt);
+    this.trailFx?.update(dt);
     this.updateCameraFollow();
     this.camCtrl?.update();
+
+    if (this.currentPhase === "PLAYING" && this.playerPiece) {
+      // A piece that falls past the arena without touching anything is a
+      // LOST piece: no lock, no points — SURVIVAL loses a life via the
+      // same clustered void logic as collapsing towers.
+      if (this.playerPiece.hasFallenOut()) {
+        this.playerPiece.abort();
+        this.playerPiece = null;
+        this.score?.onPlayerVoid();
+        if (
+          useGameStore.getState().phase === "PLAYING" &&
+          useGameStore.getState().lives > 0
+        ) {
+          this.spawnNextPlayerPiece();
+        }
+      }
+    }
 
     if (this.currentPhase === "PLAYING" && this.playerPiece && this.input) {
       const lock = this.playerPiece.update(dt, this.input.isSoftDrop());
@@ -494,6 +608,7 @@ export class GameEngine {
           group: lock.group,
           body: lock.body,
           colliderHandles: lock.colliderHandles,
+          key: lock.key,
         });
         this.score?.onLock({
           flat: lock.flat,
@@ -545,9 +660,13 @@ export class GameEngine {
     this.unsubscribePhase = null;
     this.unsubscribePlayerVoid?.();
     this.unsubscribePlayerVoid = null;
+
     this.unsubscribeDark?.();
     this.unsubscribeDark = null;
-
+    this.unsubscribeSkin?.();
+    this.unsubscribeSkin = null;
+    this.unsubscribeCharacter?.();
+    this.unsubscribeCharacter = null;
     this.skyMesh = null;
     this.hemiLight = null;
     this.sunLight = null;
@@ -556,7 +675,11 @@ export class GameEngine {
     this.input?.dispose();
     this.playerPiece?.abort();
     this.fallingRay?.dispose();
+    this.trailFx?.dispose();
+    this.trailFx = null;
     this.factory?.dispose();
+    this.blockEnvMap?.dispose();
+    this.blockEnvMap = null;
     this.camCtrl?.dispose();
     this.spawner?.dispose();
     this.score?.dispose();
@@ -567,8 +690,9 @@ export class GameEngine {
     this.stars?.dispose();
     this.clouds?.dispose();
     this.mountains?.dispose();
+    this.mist?.dispose();
     this.castle?.dispose();
-    this.wizard?.dispose();
+    this.character?.dispose();
 
     this.scene?.traverse((o) => {
       const mesh = o as THREE.Mesh;
@@ -593,8 +717,9 @@ export class GameEngine {
     this.stars = null;
     this.clouds = null;
     this.mountains = null;
+    this.mist = null;
     this.castle = null;
-    this.wizard = null;
+    this.character = null;
     this.camCtrl = null;
     this.spawner = null;
     this.factory = null;

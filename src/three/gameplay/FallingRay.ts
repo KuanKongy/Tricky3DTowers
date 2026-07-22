@@ -1,91 +1,110 @@
 import * as THREE from "three";
 import RAPIER from "@dimforge/rapier3d-compat";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { PhysicsWorld } from "../physics/PhysicsWorld";
 import { TETROMINO_COLORS, type TetrominoKey } from "../constants";
 
-interface ColumnVisual {
-  beam: THREE.Mesh;
-  shadow: THREE.Mesh;
-}
+/** Columns extend to just below the void so they never visibly end. */
+const BOTTOM_Y = -22;
 
-const HALF_W = 0.5;
-
-interface ColumnSpec {
-  /** Half-block grid key (x * 4 rounded to int). */
-  key: number;
-  /** World X centre of this half-block column. */
-  wx: number;
-  /** Lowest cell-bottom Y in this column. */
-  cellBottom: number;
-  /** Hit Y from raycast (= ground beneath the lowest cell in this column). */
-  groundY: number;
-}
 
 /**
- * Drop-shadow preview that operates on HALF-BLOCK columns under the piece.
- *
- * For every cell of the piece we record TWO half-block columns (left and
- * right halves of the cell). When multiple cells stack vertically into the
- * same half-block X column we keep only the LOWEST cellBottom (no double
- * draws), and at render time we GREEDY-MERGE adjacent half-block columns
- * that share the same cellBottom + groundY into one wider beam so adjacent
- * columns never draw seams where their transparent edges meet.
+ * The falling piece's drop indicator, done as a true projection VOLUME:
+ * one translucent vertical column under EACH cell column, running from
+ * that column's lowest cube bottom ALL the way down (like the light band
+ * beneath the falling piece in the survival reference). No raycasts and
+ * no landing quads — the tower/castle geometry simply occludes whatever
+ * part of a column it stands in front of, so a column that half-overlaps
+ * a block keeps going below it while the covered half is hidden. Adjacent
+ * columns are exactly 1 cell wide and share edges, so the shadow always
+ * reads as one continuous whole.
  */
 export class FallingRay {
-  private scene: THREE.Scene;
   private group: THREE.Group;
-  private cols: ColumnVisual[] = [];
-  private color = new THREE.Color(0xffffff);
-  private beamMat: THREE.MeshBasicMaterial;
-  private shadowMat: THREE.MeshBasicMaterial;
-  private beamGeo: THREE.BoxGeometry;
-  private shadowGeo: THREE.PlaneGeometry;
+  private cols: THREE.Mesh[] = [];
+  private sideWalls: THREE.Mesh[] = [];
+  private markers: THREE.Mesh[] = [];
+  private mat: THREE.MeshBasicMaterial;
+  private markerMat: THREE.MeshBasicMaterial;
+  private geo: THREE.BufferGeometry;
+  private sideGeo: THREE.PlaneGeometry;
+  private markerGeo: THREE.PlaneGeometry;
+  private white = new THREE.Color(0xffffff);
 
   constructor(scene: THREE.Scene) {
-    this.scene = scene;
     this.group = new THREE.Group();
     this.group.name = "FallingRay";
     this.group.visible = false;
     scene.add(this.group);
 
-    // Unit primitives — scale.x sets the beam's actual width per render.
-    this.beamGeo = new THREE.BoxGeometry(1, 1, 1);
-    this.shadowGeo = new THREE.PlaneGeometry(1, 1);
+    // Per column: front + back walls. Side walls are added separately and
+    // ONLY along exposed segments (outermost boundaries + height steps) —
+    // adjacent columns never stack coincident walls, so the fill stays
+    // perfectly uniform while the volume hangs from EVERY bottom edge.
+    // Origin at the TOP so scale.y grows the column downward.
+    const front = new THREE.PlaneGeometry(1, 1);
+    front.translate(0, -0.5, 0.5);
+    const back = new THREE.PlaneGeometry(1, 1);
+    back.rotateY(Math.PI);
+    back.translate(0, -0.5, -0.5);
+    this.geo = mergeGeometries([front, back], false)!;
+    front.dispose();
+    back.dispose();
 
-    this.beamMat = new THREE.MeshBasicMaterial({
+    // Unit side wall facing ±x (DoubleSide serves both boundaries);
+    // width axis along z, origin at the top edge.
+    this.sideGeo = new THREE.PlaneGeometry(1, 1);
+    this.sideGeo.rotateY(Math.PI / 2);
+    this.sideGeo.translate(0, -0.5, 0);
+
+    this.mat = new THREE.MeshBasicMaterial({
       color: 0xffffff,
       transparent: true,
-      opacity: 0.13,
+      opacity: 0.16,
       depthWrite: false,
-      blending: THREE.NormalBlending,
-      toneMapped: false,
-    });
-    this.shadowMat = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      transparent: true,
-      opacity: 0.55,
-      depthWrite: false,
-      blending: THREE.NormalBlending,
       toneMapped: false,
       side: THREE.DoubleSide,
     });
 
-    // 8 visual slots — biggest case is 4-cell piece × 2 halves with no merge.
-    for (let i = 0; i < 8; i++) {
-      const beam = new THREE.Mesh(this.beamGeo, this.beamMat);
-      beam.visible = false;
-      const shadow = new THREE.Mesh(this.shadowGeo, this.shadowMat);
-      shadow.rotation.x = -Math.PI / 2;
-      shadow.visible = false;
-      this.group.add(beam, shadow);
-      this.cols.push({ beam, shadow });
+    // Bright landing markers — crisp untextured quads (hard square edges),
+    // one per HALF cell so a cube straddling a block edge splits its
+    // marker across the two surfaces it will touch.
+    this.markerGeo = new THREE.PlaneGeometry(1, 1);
+    this.markerMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.55,
+      depthWrite: false,
+      toneMapped: false,
+      side: THREE.DoubleSide,
+    });
+
+    // One column per possible cell column (I piece = 4) + 2 potential
+    // exposed side segments + 2 half-square landing markers each.
+    for (let i = 0; i < 4; i++) {
+      const col = new THREE.Mesh(this.geo, this.mat);
+      col.visible = false;
+      this.group.add(col);
+      this.cols.push(col);
+      for (let w = 0; w < 2; w++) {
+        const wall = new THREE.Mesh(this.sideGeo, this.mat);
+        wall.visible = false;
+        this.group.add(wall);
+        this.sideWalls.push(wall);
+        const marker = new THREE.Mesh(this.markerGeo, this.markerMat);
+        marker.rotation.x = -Math.PI / 2;
+        marker.visible = false;
+        this.group.add(marker);
+        this.markers.push(marker);
+      }
     }
   }
 
   setKey(key: TetrominoKey) {
-    this.color.set(TETROMINO_COLORS[key]);
-    this.beamMat.color.copy(this.color);
-    this.shadowMat.color.copy(this.color);
+    this.mat.color.set(TETROMINO_COLORS[key]);
+    // The marker is the block's colour lifted toward white — brighter than
+    // the column it caps.
+    this.markerMat.color.set(TETROMINO_COLORS[key]).lerp(this.white, 0.35);
   }
 
   update(
@@ -99,105 +118,121 @@ export class FallingRay {
     const sinR = Math.sin(rollRad);
     const pz = pieceCenter.z;
 
-    // Step 1: collect half-block columns. Multiple cells stacked in the same
-    // half-X column → keep the LOWEST cellBottom (so we never render two
-    // beams on top of each other in the same column).
-    const colsByKey = new Map<
-      number,
-      { wx: number; cellBottom: number }
-    >();
+    // One column per cell column; stacked cells project from the LOWEST
+    // cube bottom in that column.
+    const colsByKey = new Map<number, { wx: number; cellBottom: number }>();
     for (const off of cellOffsets) {
       const wx = pieceCenter.x + off[0] * cosR - off[1] * sinR;
       const wy = pieceCenter.y + off[0] * sinR + off[1] * cosR;
       const cellBottom = wy - 0.5;
-      for (const dx of [-0.25, 0.25]) {
-        const halfX = wx + dx;
-        const key = Math.round(halfX * 4);
-        const existing = colsByKey.get(key);
-        if (!existing || cellBottom < existing.cellBottom) {
-          colsByKey.set(key, { wx: halfX, cellBottom });
+      const key = Math.round(wx * 2);
+      const existing = colsByKey.get(key);
+      if (!existing || cellBottom < existing.cellBottom) {
+        colsByKey.set(key, { wx, cellBottom });
+      }
+    }
+
+    // Contiguous partition: sort columns and give each one the span from
+    // the midpoint to its left neighbour to the midpoint to its right
+    // neighbour (outermost edges extend a half cell). Boxes then tile with
+    // ZERO gap and ZERO overlap at ANY rotation angle — no seams, no
+    // double-alpha strips.
+    const sorted = [...colsByKey.values()].sort((a, b) => a.wx - b.wx);
+    let slot = 0;
+    let wallSlot = 0;
+    let markerSlot = 0;
+    const placeWall = (x: number, top: number, bottom: number) => {
+      if (top - bottom < 0.02 || wallSlot >= this.sideWalls.length) return;
+      const wall = this.sideWalls[wallSlot++];
+      wall.visible = true;
+      wall.scale.set(1, top - bottom, 0.9);
+      wall.position.set(x, top, pz);
+    };
+    for (let i = 0; i < sorted.length; i++) {
+      if (slot >= this.cols.length) break;
+      const v = sorted[i];
+      const leftB =
+        i === 0 ? v.wx - 0.5 : (sorted[i - 1].wx + v.wx) / 2;
+      const rightB =
+        i === sorted.length - 1 ? v.wx + 0.5 : (v.wx + sorted[i + 1].wx) / 2;
+      const col = this.cols[slot++];
+      col.visible = true;
+      col.scale.set(
+        Math.max(rightB - leftB, 0.01),
+        Math.max(v.cellBottom - BOTTOM_Y, 0.01),
+        0.9,
+      );
+      col.position.set((leftB + rightB) / 2, v.cellBottom, pz);
+
+      // Exposed side segments: full wall on the outer boundaries; at an
+      // interior boundary only the step between the two columns' tops
+      // (drawn by whichever column starts higher — the formula yields a
+      // non-positive height for the lower one, so it's skipped).
+      placeWall(
+        leftB,
+        v.cellBottom,
+        i === 0 ? BOTTOM_Y : sorted[i - 1].cellBottom,
+      );
+      placeWall(
+        rightB,
+        v.cellBottom,
+        i === sorted.length - 1 ? BOTTOM_Y : sorted[i + 1].cellBottom,
+      );
+
+      // Bright landing markers on the FIRST surface each HALF of this cube
+      // will collide with (an addition on top of the column volume) — a
+      // cube straddling a block edge shows one half on the block top and
+      // the other half on the surface below. Halves use the partition
+      // span, so same-height neighbours tile edge-to-edge.
+      const mid = (leftB + rightB) / 2;
+      for (const [h0, h1] of [
+        [leftB, mid],
+        [mid, rightB],
+      ]) {
+        let contact = Infinity;
+        const hc = (h0 + h1) / 2;
+        for (const dx of [-0.15, 0.15]) {
+          const rc = new RAPIER.Ray(
+            { x: hc + dx, y: v.cellBottom, z: pz },
+            { x: 0, y: -1, z: 0 },
+          );
+          const hit = pw.world.castRay(
+            rc,
+            80,
+            true,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            (col) => !exclude.has(col.handle) && !col.isSensor(),
+          );
+          if (hit && hit.timeOfImpact < contact) {
+            contact = Math.max(hit.timeOfImpact, 0);
+          }
+        }
+        if (Number.isFinite(contact) && markerSlot < this.markers.length) {
+          const marker = this.markers[markerSlot++];
+          marker.visible = true;
+          marker.scale.set(Math.max(h1 - h0, 0.01), 1.0, 1);
+          marker.position.set(
+            hc,
+            v.cellBottom - contact + 0.02 + markerSlot * 0.004,
+            pz,
+          );
         }
       }
     }
-
-    // Step 2: raycast each column to its surface.
-    const specs: ColumnSpec[] = [];
-    for (const [key, v] of colsByKey) {
-      const ray = new RAPIER.Ray(
-        { x: v.wx, y: v.cellBottom, z: pz },
-        { x: 0, y: -1, z: 0 },
-      );
-      const hit = pw.world.castRay(
-        ray,
-        80,
-        true,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        (col) => !exclude.has(col.handle),
-      );
-      if (!hit || hit.timeOfImpact <= 0.05) continue;
-      specs.push({
-        key,
-        wx: v.wx,
-        cellBottom: v.cellBottom,
-        groundY: v.cellBottom - hit.timeOfImpact,
-      });
+    for (; slot < this.cols.length; slot++) {
+      this.cols[slot].visible = false;
+    }
+    for (; wallSlot < this.sideWalls.length; wallSlot++) {
+      this.sideWalls[wallSlot].visible = false;
+    }
+    for (; markerSlot < this.markers.length; markerSlot++) {
+      this.markers[markerSlot].visible = false;
     }
 
-    // Step 3: greedy-merge adjacent columns that share cellBottom + groundY
-    // into one wider beam — adjacent transparent boxes can't form a darker
-    // edge seam when they're rendered as a single mesh.
-    specs.sort((a, b) => a.key - b.key);
-    type Run = { x0: number; x1: number; cellBottom: number; groundY: number };
-    const runs: Run[] = [];
-    const EPS = 0.05;
-    for (const s of specs) {
-      const last = runs[runs.length - 1];
-      const matches =
-        last !== undefined &&
-        Math.round((last.x1 + HALF_W / 2) * 4) === s.key &&
-        Math.abs(last.cellBottom - s.cellBottom) < EPS &&
-        Math.abs(last.groundY - s.groundY) < EPS;
-      if (matches) {
-        last.x1 = s.wx + HALF_W / 2;
-      } else {
-        runs.push({
-          x0: s.wx - HALF_W / 2,
-          x1: s.wx + HALF_W / 2,
-          cellBottom: s.cellBottom,
-          groundY: s.groundY,
-        });
-      }
-    }
-
-    // Step 4: render runs into the slot pool.
-    let slotIdx = 0;
-    let any = false;
-    for (const r of runs) {
-      if (slotIdx >= this.cols.length) break;
-      const slot = this.cols[slotIdx++];
-      const width = r.x1 - r.x0;
-      const cx = (r.x0 + r.x1) / 2;
-      const length = r.cellBottom - r.groundY;
-
-      slot.beam.visible = true;
-      slot.beam.scale.set(width, length, 1);
-      slot.beam.position.set(cx, r.groundY + length / 2, pz);
-
-      slot.shadow.visible = true;
-      slot.shadow.scale.set(width, 1, 1);
-      slot.shadow.position.set(cx, r.groundY + 0.02, pz);
-
-      any = true;
-    }
-    for (; slotIdx < this.cols.length; slotIdx++) {
-      this.cols[slotIdx].beam.visible = false;
-      this.cols[slotIdx].shadow.visible = false;
-    }
-
-    this.group.visible = any;
+    this.group.visible = true;
   }
 
   hide() {
@@ -206,10 +241,10 @@ export class FallingRay {
 
   dispose() {
     if (this.group.parent) this.group.parent.remove(this.group);
-    this.beamGeo.dispose();
-    this.shadowGeo.dispose();
-    this.beamMat.dispose();
-    this.shadowMat.dispose();
-    void this.scene;
+    this.geo.dispose();
+    this.sideGeo.dispose();
+    this.markerGeo.dispose();
+    this.mat.dispose();
+    this.markerMat.dispose();
   }
 }

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="dark" style="background-color: #06030f">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -10,18 +10,40 @@
       name="description"
       content="A physics-based tower-stacking game set in a stylized night-sky world. Built with Three.js, Rapier and React."
     />
+    <style>
+      html.dark { background-color: #06030f; }
+      html:not(.dark) { background-color: #dbe7fb; }
+    </style>
+    <script>
+      // Resolve the theme before first paint. Priority: ?theme= param >
+      // saved toggle > OS preference (first visit). Must mirror stored.dark
+      // in src/store/gameStore.ts.
+      (function () {
+        try {
+          var forced = new URLSearchParams(location.search).get("theme");
+          var saved = localStorage.getItem("trickyTowers.dark");
+          var dark = forced
+            ? forced !== "light"
+            : saved === null
+              ? !matchMedia("(prefers-color-scheme: light)").matches
+              : saved === "1";
+          document.documentElement.classList.toggle("dark", dark);
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute("content", dark ? "#1a0a3d" : "#c8d8f8");
+        } catch (e) {
+          /* stay on the static dark default */
+        }
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Roboto:wght@300;400;500;700;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=DM+Sans:wght@400;500;700&display=swap"
       rel="stylesheet"
     />
   </head>
-  <body
-    class="bg-[#06030f] text-white"
-    style="background-color: #06030f"
-  >
-    <div id="root" style="background-color: #06030f"></div>
+  <body>
+    <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

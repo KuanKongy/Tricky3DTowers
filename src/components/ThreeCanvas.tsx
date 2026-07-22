@@ -11,6 +11,9 @@ export default function ThreeCanvas() {
     let engine: GameEngine | null = null;
     let cancelled = false;
 
+    // Defer instantiation by one tick so React 18 StrictMode's immediate
+    // mount → unmount → mount cycle in dev never lets a half-initialized
+    // engine grab the canvas's WebGL context.
     const id = window.setTimeout(() => {
       if (cancelled) return;
       engine = new GameEngine(canvas);
@@ -34,8 +37,8 @@ export default function ThreeCanvas() {
       />
       {status.phase === "error" && (
         <div className="pointer-events-none fixed inset-x-0 top-0 z-40 flex justify-center pt-20">
-          <div className="pointer-events-auto frosted max-w-xl px-5 py-3 text-sm text-rose-200">
-            <strong className="mr-2 font-arcade text-xs text-rose-300">
+          <div className="pointer-events-auto frosted max-w-xl px-5 py-3 text-sm text-rose-700 dark:text-rose-200">
+            <strong className="mr-2 font-arcade text-xs text-rose-800 dark:text-rose-300">
               [SCENE]
             </strong>
             {status.message}
