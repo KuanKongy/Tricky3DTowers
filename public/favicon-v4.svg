@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="bg" cx="0.5" cy="0.45" r="0.6">
+      <stop offset="0%" stop-color="#2a1468"/>
+      <stop offset="100%" stop-color="#0d0525"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#6030ff" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#6030ff" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="streak" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect x="0" y="0" width="2.5" height="14" fill="white" opacity="0.13"/>
+      <rect x="5" y="0" width="1" height="14" fill="white" opacity="0.07"/>
+    </pattern>
+    <clipPath id="tClip">
+      <path d="M2,52 L62,52 L62,32 L42,32 L42,12 L22,12 L22,32 L2,32 Z"/>
+    </clipPath>
+  </defs>
+  <rect width="64" height="64" fill="url(#bg)" rx="6"/>
+  <!-- Tiny dot stars -->
+  <circle cx="8" cy="8" r="0.9" fill="#fff" opacity="0.5"/>
+  <circle cx="56" cy="6" r="0.7" fill="#fff" opacity="0.4"/>
+  <circle cx="14" cy="20" r="0.6" fill="#fff" opacity="0.3"/>
+  <circle cx="50" cy="18" r="0.8" fill="#fff" opacity="0.35"/>
+  <circle cx="7" cy="56" r="0.7" fill="#fff" opacity="0.25"/>
+  <circle cx="57" cy="58" r="0.6" fill="#fff" opacity="0.2"/>
+  <ellipse cx="32" cy="34" rx="28" ry="22" fill="url(#glow)"/>
+  <!-- GEM bevel trapezoids (exact game: 0.2 cell inset, game-accurate colors) -->
+  <polygon points="2,52 62,52 58,48 6,48" fill="#276a2a"/>
+  <polygon points="62,52 62,32 58,36 58,48" fill="#368e3a"/>
+  <polygon points="62,32 42,32 38,36 58,36" fill="#8bd28e"/>
+  <polygon points="42,32 42,12 38,16 38,36" fill="#368e3a"/>
+  <polygon points="42,12 22,12 26,16 38,16" fill="#8bd28e"/>
+  <polygon points="22,12 22,32 26,36 26,16" fill="#60c065"/>
+  <polygon points="22,32 2,32 6,36 26,36" fill="#8bd28e"/>
+  <polygon points="2,32 2,52 6,48 6,36" fill="#60c065"/>
+  <!-- Inner table face (front variant) -->
+  <path d="M6,48 L58,48 L58,36 L38,36 L38,16 L26,16 L26,36 L6,36 Z" fill="#57bf5b"/>
+  <!-- Diagonal light streaks -->
+  <rect x="0" y="0" width="64" height="64" fill="url(#streak)" clip-path="url(#tClip)"/>
+  <!-- Top-edge highlight (stem top only) -->
+  <line x1="23" y1="12.8" x2="41" y2="12.8" stroke="white" stroke-width="1" opacity="0.3" stroke-linecap="round"/>
+  <!-- Dark outline (exact game: 0.1 cell = 2px) -->
+  <path d="M2,52 L62,52 L62,32 L42,32 L42,12 L22,12 L22,32 L2,32 Z"
+        fill="none" stroke="#184219" stroke-width="2" stroke-linejoin="miter"/>
+</svg>

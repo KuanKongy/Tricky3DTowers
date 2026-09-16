@@ -206,7 +206,8 @@ export default function LobbyOverlay() {
             <div className="mt-1 leading-relaxed">
               {touchUI ? (
                 <>
-                  ◀ ▶ move · ⟳ rotate
+                  ◀ ▶ move 
+                  <br />⟳ rotate
                   <br />⇊ soft drop
                   <br />
                   drag · aim camera
@@ -215,7 +216,7 @@ export default function LobbyOverlay() {
                 </>
               ) : (
                 <>
-                  ← → move<br />↑ rotate<br />↓ soft drop<br />Space · start
+                  ← → move<br />↑ rotate<br />↓ soft drop<br />Space · start<br />Q · quit
                 </>
               )}
             </div>
