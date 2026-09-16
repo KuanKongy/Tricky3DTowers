@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useGameStore } from "../store/gameStore";
+import { touchUIEnabled } from "../lib/touchUI";
 import { TETROMINO_COLORS } from "../three/constants";
 import { PiMoonFill, PiSun, PiSunHorizon } from "react-icons/pi";
 import SkinCarousel from "./SkinCarousel";
@@ -56,6 +57,7 @@ export default function LobbyOverlay() {
     if (phase === "WAITING") setPhase("PLAYING");
     else if (phase === "LOBBY_TRANSITION") queuePendingPlay();
   };
+  const touchUI = useMemo(touchUIEnabled, []);
 
   return (
     <div
@@ -67,7 +69,7 @@ export default function LobbyOverlay() {
       aria-hidden={!visible}
     >
       <div
-        className={`frosted w-full max-w-md px-8 py-7 text-center ${
+        className={`frosted max-h-[94dvh] w-full max-w-md overflow-y-auto px-8 py-7 text-center ${
           visible ? "pointer-events-auto" : "pointer-events-none"
         }`}
       >
@@ -103,13 +105,21 @@ export default function LobbyOverlay() {
         >
           <div className="font-arcade text-[10px] text-ink/70 dark:text-white/65">
             {ready
-              ? "PRESS / CLICK"
+              ? touchUI
+                ? "TAP"
+                : "PRESS / CLICK"
               : pendingPlayAfterLobby
                 ? "START QUEUED"
                 : "READY IN…"}
           </div>
           <div className="mt-1 font-arcade text-2xl tracking-widest text-ink dark:text-white">
-            {ready ? "[ SPACE ]" : pendingPlayAfterLobby ? "[ GO ]" : "WIZARDING…"}
+            {ready
+              ? touchUI
+                ? "[ START ]"
+                : "[ SPACE ]"
+              : pendingPlayAfterLobby
+                ? "[ GO ]"
+                : "WIZARDING…"}
           </div>
           <div className="mt-1 font-arcade text-[10px] text-ink/70 dark:text-white/65">
             {ready
@@ -194,7 +204,20 @@ export default function LobbyOverlay() {
               CONTROLS
             </div>
             <div className="mt-1 leading-relaxed">
-              ← → move<br />↑ rotate<br />↓ soft drop<br />Space · start<br />Q / Esc · quit
+              {touchUI ? (
+                <>
+                  ◀ ▶ move · ⟳ rotate
+                  <br />⇊ soft drop
+                  <br />
+                  drag · aim camera
+                  <br />
+                  pinch · zoom
+                </>
+              ) : (
+                <>
+                  ← → move<br />↑ rotate<br />↓ soft drop<br />Space · start
+                </>
+              )}
             </div>
           </div>
           <div className="frosted-soft px-3 py-2">

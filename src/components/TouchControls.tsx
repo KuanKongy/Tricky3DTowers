@@ -7,12 +7,8 @@ import {
   PiCaretRightBold,
 } from "react-icons/pi";
 import { useGameStore } from "../store/gameStore";
+import { touchUIEnabled } from "../lib/touchUI";
 
-/**
- * Fire the same window key events the keyboard produces — InputController
- * was built as a dumb key adapter precisely so touch could ride on top of
- * it: its own hold-repeat handles held ◀/▶, and `held` drives soft-drop.
- */
 function keyDown(key: string) {
   window.dispatchEvent(new KeyboardEvent("keydown", { key, code: key }));
 }
@@ -57,13 +53,7 @@ function HoldButton({
  */
 export default function TouchControls() {
   const phase = useGameStore((s) => s.phase);
-  const enabled = useMemo(
-    () =>
-      typeof window !== "undefined" &&
-      (window.matchMedia("(pointer: coarse)").matches ||
-        new URLSearchParams(window.location.search).has("touch")),
-    [],
-  );
+  const enabled = useMemo(touchUIEnabled, []);
 
   if (!enabled || phase !== "PLAYING") return null;
 

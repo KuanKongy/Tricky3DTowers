@@ -1,5 +1,7 @@
+import { useMemo } from "react";
 import { PiMoonFill, PiSun } from "react-icons/pi";
 import { useGameStore } from "../store/gameStore";
+import { touchUIEnabled } from "../lib/touchUI";
 
 export default function GameOverCard() {
   const phase = useGameStore((s) => s.phase);
@@ -13,6 +15,7 @@ export default function GameOverCard() {
 
   const visible = phase === "GAME_OVER";
   const isNewHigh = score > 0 && score >= high;
+  const touchUI = useMemo(touchUIEnabled, []);
 
   return (
     <div
@@ -76,14 +79,14 @@ export default function GameOverCard() {
           onClick={() => setPhase("PLAYING")}
           className="play-btn w-full justify-center"
         >
-          Play Again (Enter / R)
+          {touchUI ? "Play Again" : "Play Again (Enter / R)"}
         </button>
         <button
           type="button"
           onClick={() => setPhase("WAITING")}
           className="mt-3 inline-flex w-full items-center justify-center rounded-full border border-[color:var(--line-strong)] px-4 py-2 text-sm text-ink dark:text-ink/80 transition hover:border-ink/60 hover:bg-ink/5"
         >
-          Back to Lobby (Q / Esc)
+          {touchUI ? "Back to Lobby" : "Back to Lobby (Q / Esc)"}
         </button>
       </div>
     </div>

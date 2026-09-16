@@ -32,7 +32,7 @@ export default function ThreeCanvas() {
     <>
       <canvas
         ref={canvasRef}
-        className="fixed inset-0 z-0 h-screen w-screen"
+        className="fixed inset-0 z-0 h-screen w-screen touch-none"
         style={{ display: "block", background: "transparent" }}
       />
       {status.phase === "error" && (
