@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="bg" cx="0.5" cy="0.45" r="0.6">
+      <stop offset="0%" stop-color="#2a1468"/>
+      <stop offset="100%" stop-color="#0d0525"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#6030ff" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#6030ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gxGrad" x1="0" y1="10.667" x2="0" y2="53.333" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#9767d8"/>
+      <stop offset="100%" stop-color="#492180"/>
+    </linearGradient>
+    <clipPath id="tClip">
+      <path d="M0,53.333 L64,53.333 L64,32 L42.667,32 L42.667,10.667 L21.333,10.667 L21.333,32 L0,32 Z"/>
+    </clipPath>
+  </defs>
+  <rect width="64" height="64" fill="url(#bg)" rx="6"/>
+  <g fill="#fff">
+    <path d="M9,4 Q9,6.7 11.7,6.7 Q9,6.7 9,9.4 Q9,6.7 6.3,6.7 Q9,6.7 9,4Z" opacity="0.45"/>
+    <path d="M51,3 Q51,5.6 53.6,5.6 Q51,5.6 51,8.2 Q51,5.6 48.4,5.6 Q51,5.6 51,3Z" opacity="0.38"/>
+    <path d="M15,19 Q15,21.8 17.8,21.8 Q15,21.8 15,24.6 Q15,21.8 12.2,21.8 Q15,21.8 15,19Z" opacity="0.3"/>
+    <path d="M56,22 Q56,24.5 58.5,24.5 Q56,24.5 56,27 Q56,24.5 53.5,24.5 Q56,24.5 56,22Z" opacity="0.25"/>
+    <path d="M10,57 Q10,59.6 12.6,59.6 Q10,59.6 10,62.2 Q10,59.6 7.4,59.6 Q10,59.6 10,57Z" opacity="0.2"/>
+  </g>
+  <ellipse cx="32" cy="34" rx="28" ry="22" fill="url(#glow)"/>
+  <path d="M0,53.333 L64,53.333 L64,32 L42.667,32 L42.667,10.667 L21.333,10.667 L21.333,32 L0,32 Z" fill="url(#gxGrad)"/>
+  <polygon points="0,53.333 64,53.333 61.013,50.347 2.987,50.347" fill="#34175b"/>
+  <polygon points="64,53.333 64,32 61.013,34.987 61.013,50.347" fill="#552793"/>
+  <polygon points="64,32 42.667,32 39.68,34.987 61.013,34.987" fill="#b391e1"/>
+  <polygon points="42.667,32 42.667,10.667 39.68,13.653 39.68,34.987" fill="#552793"/>
+  <polygon points="42.667,10.667 21.333,10.667 24.32,13.653 39.68,13.653" fill="#b391e1"/>
+  <polygon points="21.333,10.667 21.333,32 24.32,34.987 24.32,13.653" fill="#8750d0"/>
+  <polygon points="21.333,32 0,32 2.987,34.987 24.32,34.987" fill="#b391e1"/>
+  <polygon points="0,32 0,53.333 2.987,50.347 2.987,34.987" fill="#8750d0"/>
+  <g clip-path="url(#tClip)" fill="#fff">
+    <path d="M12.73,40 Q12.73,42.6 15.33,42.6 Q12.73,42.6 12.73,45.2 Q12.73,42.6 10.13,42.6 Q12.73,42.6 12.73,40Z" opacity="0.95"/>
+    <path d="M28.29,43.17 Q28.29,46.16 31.28,46.16 Q28.29,46.16 28.29,49.15 Q28.29,46.16 25.3,46.16 Q28.29,46.16 28.29,43.17Z" opacity="0.95"/>
+    <path d="M58.65,37.25 Q58.65,39.77 61.17,39.77 Q58.65,39.77 58.65,42.29 Q58.65,39.77 56.13,39.77 Q58.65,39.77 58.65,37.25Z" opacity="0.95"/>
+    <circle cx="16.67" cy="37.11" r="0.38" opacity="0.7"/>
+    <circle cx="2.41" cy="31.11" r="0.38" opacity="0.7"/>
+    <circle cx="39.44" cy="39.4" r="0.38" opacity="0.7"/>
+    <circle cx="24.64" cy="13.23" r="0.38" opacity="0.7"/>
+    <circle cx="53.42" cy="43.95" r="0.38" opacity="0.7"/>
+    <circle cx="62.18" cy="31.08" r="0.38" opacity="0.7"/>
+  </g>
+  <path d="M0,53.333 L64,53.333 L64,32 L42.667,32 L42.667,10.667 L21.333,10.667 L21.333,32 L0,32 Z"
+        fill="none" stroke="#261143" stroke-width="1.493" stroke-linejoin="miter"/>
+</svg>
